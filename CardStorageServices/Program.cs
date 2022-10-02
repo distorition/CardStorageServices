@@ -1,7 +1,13 @@
+using AutoMapper;
 using CardStorageServices.Data;
+using CardStorageServices.Mapping;
 using CardStorageServices.Models;
+using CardStorageServices.Models.Request.AuthenticationRequestResponse;
+using CardStorageServices.Models.Request.CardRequestResponse;
+using CardStorageServices.Models.Validators;
 using CardStorageServices.Services;
 using CardStorageServices.Services.Impl;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.EntityFrameworkCore;
@@ -12,11 +18,27 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+#region настройки Валидатора
+builder.Services.AddScoped<IValidator<AuthenticationRequest>, AuthenticationRequestsValidator>();
+builder.Services.AddScoped<IValidator<CreateCardRequest>, CardRequestValidation>();
+#endregion
+
+#region Настройки Маппера
+
+var mapperProfile = new MapperConfiguration(mp => mp.AddProfile(new MappingsProfile()));
+var mapper=mapperProfile.CreateMapper();
+builder.Services.AddSingleton(mapper);
+
+#endregion
+
+#region Настройки сервисов
 builder.Services.Configure<DataBaseOptions>(options =>
 {
     builder.Configuration.GetSection("Setting:DataBaseOPtions").Bind(options);
 });
+#endregion
 
+#region Настройка Логина(авторизации) и логов
 builder.Services.AddHttpLogging(logging =>
 {
     logging.LoggingFields =HttpLoggingFields.All | HttpLoggingFields.RequestQuery;
@@ -27,11 +49,13 @@ builder.Services.AddHttpLogging(logging =>
     logging.ResponseHeaders.Add("X-Forwad_For");
 });
 
+
 builder.Host.ConfigureLogging(logging =>
 {
     logging.ClearProviders();
     logging.AddConsole();
 }).UseNLog(new NLogAspNetCoreOptions() { RemoveLoggerFactoryFilter = true });
+#endregion
 
 #region Настройки JWT Токена
 
@@ -57,10 +81,12 @@ builder.Services.AddAuthentication(x =>//основные настройки аутентификации
 
 #endregion
 
+#region Подключения базы данных
 builder.Services.AddDbContext<CardStorageDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration["Setting:DataBaseOPtions:ConnectionString"]);
 });
+#endregion
 
 builder.Services.AddSingleton<IAuthenticateServices, AuthenticationServices>();
 
@@ -86,8 +112,9 @@ builder.Services.AddSwaggerGen(c =>
 
     c.AddSecurityRequirement(new OpenApiSecurityRequirement()//таким образом мы указываем что вызов каждого метода требует вызова токена 
     {
-        {
-        new OpenApiSecurityScheme()
+        {//эти скобки нужня для доабвления чего либо в слвоарь то есть сначал ключ а потом парметры  
+
+        new OpenApiSecurityScheme()//наш ключ 
         {
             Reference= new OpenApiReference()//а тут мы указываем что сам токена нужно брать из AddSecurityDefinition
             {
@@ -95,7 +122,7 @@ builder.Services.AddSwaggerGen(c =>
                 Id="Bearer"
             }
         },
-        Array.Empty<string>()
+        Array.Empty<string>()//наши параметры 
         }
     });
 

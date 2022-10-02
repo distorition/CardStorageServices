@@ -1,7 +1,10 @@
-﻿using CardStorageServices.Data;
+﻿using AutoMapper;
+using CardStorageServices.Data;
 using CardStorageServices.Models;
 using CardStorageServices.Models.Request.CardRequestResponse;
 using CardStorageServices.Services.Impl;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -15,10 +18,15 @@ namespace CardStorageServices.Controllers
     {
         private readonly ILogger<CardController> _Logger;
         private readonly ICardRepositoryServices _CardRepositoryServices;
-        public CardController(ILogger<CardController> logger, ICardRepositoryServices cardRepositoryServices)
+        private readonly IMapper mapper;
+        private readonly IValidator<CreateCardRequest> validator;
+
+        public CardController(ILogger<CardController> logger, ICardRepositoryServices cardRepositoryServices,IMapper mapper1, IValidator<CreateCardRequest> validator)
         {
             _Logger = logger;
             _CardRepositoryServices = cardRepositoryServices;
+            mapper = mapper1;
+            this.validator = validator;
         }
 
 
@@ -35,13 +43,20 @@ namespace CardStorageServices.Controllers
         {
             try
             {
-                var carId = _CardRepositoryServices.Create(new Card
+                ValidationResult validationResult = validator.Validate(request);
+                if (!validationResult.IsValid)
                 {
-                    ClientId = request.ClientId,
-                    CardNo = request.CardNo,
-                    ExData = request.ExpDate,
-                    CVV = request.CVV2
-                });
+                    return BadRequest(validationResult.ToDictionary());//возвращаем список ошибок
+                }
+                //var carId = _CardRepositoryServices.Create(new Card
+                //{
+                //    ClientId = request.ClientId,
+                //    CardNo = request.CardNo,
+                //    ExData = request.ExpDate,
+                //    CVV = request.CVV2
+                //});
+                //таким образом стракой снизу мы заменили всё что сверху
+                var carId = _CardRepositoryServices.Create(mapper.Map<Card>(request));//к какому типу мы хотим привести обьект(к типу Card) что хотим привести( request)
                 return Ok(new CreateCardResponse
                 {
                     CardId = carId.ToString()
@@ -72,14 +87,15 @@ namespace CardStorageServices.Controllers
                 var cards = _CardRepositoryServices.GetByClientId(clientId);
                 return Ok(new GetCardResponse
                 {
-                    Cards = cards.Select(card => new CardDto
-                    {
-                        CardNO = card.CardNo,
-                        CVV2 = card.CVV,
-                        Name = card.Name,
-                        ExpDate = card.ExData.ToString("MM/yy")
+                    Cards=mapper.Map<List<CardDto>>(cards)
+                    //Cards = cards.Select(card => new CardDto
+                    //{
+                    //    CardNO = card.CardNo,
+                    //    CVV2 = card.CVV,
+                    //    Name = card.Name,
+                    //    ExpDate = card.ExData.ToString("MM/yy")
 
-                    }).ToList()
+                    //}).ToList()
                 });
             }
             catch (Exception ex)
