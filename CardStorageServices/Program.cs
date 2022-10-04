@@ -18,6 +18,20 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+#region Настройки gRPC(подключение grpc сервиса)
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Listen(System.Net.IPAddress.Any, 5001, lisenOptions =>
+    {
+        lisenOptions.Protocols = Microsoft.AspNetCore.Server.Kestrel.Core.HttpProtocols.Http2;//тут мы указываем какой протокол для передачи данных мы будем использовать
+    });
+    //таким образом мы каызваем что наш сервис будет слушать все сообещния с любого ИП адреса, так же указываем порт на котором будет слушание сообщений
+});
+builder.Services.AddGrpc();
+
+#endregion
+
 #region настройки Валидатора
 builder.Services.AddScoped<IValidator<AuthenticationRequest>, AuthenticationRequestsValidator>();
 builder.Services.AddScoped<IValidator<CreateCardRequest>, CardRequestValidation>();
@@ -136,11 +150,23 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+app.UseWhen(c => c.Request.ContentType != "application/grpc",
+    builder =>
+    {
+        builder.UseHttpLogging();
+    });
+
 
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseHttpLogging();
+
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapGrpcService<ClientService>();//нужна для того чтобы наше приложение могло обрабатывать сообщения grpс
+    endpoints.MapGrpcService<CardService>();//так же указываем какой у нас тип сервиса(CardService)
+});
 
 app.MapControllers();
 

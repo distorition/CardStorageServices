@@ -1,0 +1,37 @@
+syntax = "proto3";
+//подобный интерфейс создавался бы самым первым из всего приложения
+option csharp_namespace = "CardStorageServicesProtos";
+
+service ClientService{ //так выглядит интерфейс в рамках языки idl
+
+	rpc Create(CreateClientRequest) returns (CreateClientResponse); //так прописываются методы (какой тип мы передаем на вход) retutns(то что поступает на выход)
+}
+
+service CardService{
+	rpc getBuClientId(GetBuClientIdRequest) returns (GetBuClientIdResponse);
+}
+
+message CreateClientRequest{ //так мы описываем наши типы которые передали на вход и на выход
+		string SurName=1;
+		string FirstName=2;//каждое поле должно быть пронумерованно 
+		string Patronomic=3;// нумерация нужна из за бинарного типа
+}
+
+message CreateClientResponse{
+	int32 ClietnId=1;
+}
+
+message GetBuClientIdResponse{
+	repeated Card Cards=1;//так записывается коллекци
+}
+
+message GetBuClientIdRequest{
+	int32 ClietnId=1;
+}
+
+message Card{
+	string CardNO=1;
+	string	Name=2;
+	string CVV2=3;
+	string ExpDate=4;
+}
